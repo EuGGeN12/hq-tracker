@@ -1,0 +1,767 @@
+<title>hq tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<style>
+/* hq tracker — temă alb-negru (stil Uber), mobile-first.
+   Layout: bară de jos + FAB pe telefon, meniu lateral pe desktop. */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+:root {
+  --bg: #ffffff; --fg: #000000;
+  --surface: #f3f3f3; --surface-2: #e8e8e8;
+  --line: #e6e6e6; --muted: #6b6b6b; --muted-2: #a6a6a6; --bar-2: #c4c4c4;
+  --hatch: #555555; --hover-dark: #222222;
+  --hero-line: rgba(255,255,255,.18); --inv-track: rgba(255,255,255,.2);
+  --backdrop: rgba(0,0,0,.5); --fab-shadow: rgba(0,0,0,.25); --lift-shadow: rgba(0,0,0,.06);
+  --radius: 16px; --radius-sm: 10px;
+  --sidebar: 256px; --tabbar: 64px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #000000; --fg: #ffffff;
+    --surface: #161616; --surface-2: #262626;
+    --line: #242424; --muted: #9a9a9a; --muted-2: #6f6f6f; --bar-2: #444444;
+    --hatch: #9a9a9a; --hover-dark: #e0e0e0;
+    --hero-line: rgba(0,0,0,.14); --inv-track: rgba(0,0,0,.14);
+    --backdrop: rgba(0,0,0,.7); --fab-shadow: rgba(0,0,0,.6); --lift-shadow: rgba(0,0,0,.4);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #000000; --fg: #ffffff;
+  --surface: #161616; --surface-2: #262626;
+  --line: #242424; --muted: #9a9a9a; --muted-2: #6f6f6f; --bar-2: #444444;
+  --hatch: #9a9a9a; --hover-dark: #e0e0e0;
+  --hero-line: rgba(0,0,0,.14); --inv-track: rgba(0,0,0,.14);
+  --backdrop: rgba(0,0,0,.7); --fab-shadow: rgba(0,0,0,.6); --lift-shadow: rgba(0,0,0,.4);
+  color-scheme: dark;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-family: var(--font); background: var(--bg); color: var(--fg);
+  font-size: 15px; line-height: 1.4;
+  -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 25; background: var(--bg); }
+body.locked { overflow: hidden; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; }
+a { color: inherit; text-decoration: none; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Layout ---------- */
+.app { min-height: 100dvh; }
+.sidebar { display: none; }
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg);
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px 12px;
+}
+.topbar h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titles { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.top-date { font-size: 13px; font-weight: 600; background: var(--surface); border-radius: 999px; padding: 8px 12px; white-space: nowrap; text-transform: capitalize; }
+
+main { padding: 4px 16px calc(var(--tabbar) + var(--safe-b) + 96px); max-width: 1120px; margin: 0 auto; }
+
+.tabbar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  background: var(--bg); border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  height: calc(var(--tabbar) + var(--safe-b)); padding-bottom: var(--safe-b);
+}
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 500; color: var(--muted-2); }
+.tab.active { color: var(--fg); font-weight: 700; }
+
+.fab {
+  position: fixed; z-index: 31; right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(var(--tabbar) + var(--safe-b) + 16px);
+  width: 58px; height: 58px; border-radius: 50%;
+  background: var(--fg); color: var(--bg); display: grid; place-items: center;
+  box-shadow: 0 6px 20px var(--fab-shadow);
+}
+
+/* ---------- Componente ---------- */
+.section { margin-top: 28px; }
+.section-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; margin-bottom: 8px; }
+.section-head h2 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.link { font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.hint { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+.notice {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 10px 14px; margin-bottom: 14px; font-size: 14px;
+}
+.notice .link { white-space: nowrap; }
+
+.hero { background: var(--fg); color: var(--bg); border-radius: var(--radius); padding: 20px; }
+.hero-label { font-size: 14px; color: var(--muted-2); font-weight: 500; }
+.hero-big { font-size: 36px; font-weight: 800; letter-spacing: -0.035em; margin-top: 4px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hero-sub { font-size: 14px; color: var(--muted-2); margin: 4px 0 16px; font-variant-numeric: tabular-nums; }
+.hero-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--hero-line); }
+.hero-split span { display: block; font-size: 12px; color: var(--muted-2); }
+.hero-split b { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.hero-meta { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--muted-2); margin-top: 8px; }
+
+.list { display: flex; flex-direction: column; }
+.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.list .row:last-child { border-bottom: 0; }
+a.row:active { background: var(--surface); }
+.avatar { flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: var(--surface); display: grid; place-items: center; font-size: 13px; font-weight: 700; }
+.avatar.dark { background: var(--fg); color: var(--bg); }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.row-title { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-end { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.row-end b { font-weight: 700; }
+.row-end small { font-size: 12px; color: var(--muted); }
+.chev { color: var(--muted-2); display: grid; }
+
+.ms { display: block; width: 100%; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.ms:last-child { border-bottom: 0; }
+.ms-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+.ms-top span:first-child { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-val { font-size: 14px; color: var(--muted); white-space: nowrap; }
+.ms-val b { color: var(--fg); }
+.ms-sub { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+.progress { height: 8px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.progress > i { display: block; height: 100%; background: var(--fg); border-radius: 99px; transition: width .3s; }
+.progress.over > i { background: repeating-linear-gradient(45deg, var(--fg) 0 6px, var(--hatch) 6px 12px); }
+.progress.inv { background: var(--inv-track); }
+.progress.inv > i { background: var(--bg); }
+
+.seg { display: flex; background: var(--surface); border-radius: 999px; padding: 4px; }
+.seg button { flex: 1; padding: 9px 12px; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--muted); min-height: 40px; }
+.seg button.on { background: var(--fg); color: var(--bg); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 8px 14px; border-radius: 999px; background: var(--surface); font-weight: 500; font-size: 14px; min-height: 36px; }
+.chip.on { background: var(--fg); color: var(--bg); }
+
+.btn { height: 48px; padding: 0 20px; border-radius: var(--radius-sm); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--surface); }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--fg); color: var(--bg); }
+.btn.primary:hover { background: var(--hover-dark); }
+.btn.block { width: 100%; }
+.btn.danger { background: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.btn.armed { background: var(--fg); color: var(--bg); text-decoration: none; }
+.link.armed { text-decoration: none; background: var(--fg); color: var(--bg); padding: 2px 8px; border-radius: 6px; }
+.icon-btn { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface); }
+.action-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 12px; }
+.add-under { margin-top: 12px; }
+.badge { display: inline-block; vertical-align: middle; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--fg); color: var(--bg); }
+.badge.ghost { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+
+.form { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.field input {
+  width: 100%; height: 48px; border-radius: var(--radius-sm);
+  background: var(--surface); border: 2px solid transparent;
+  padding: 0 14px; font-size: 16px; outline: none; appearance: none;
+}
+.field input:focus { border-color: var(--fg); background-color: var(--bg); }
+.actions { display: flex; gap: 8px; margin-top: 4px; }
+.actions .btn.primary { flex: 1; }
+.info { font-size: 13px; color: var(--muted); background: var(--surface); border-radius: var(--radius-sm); padding: 10px 14px; }
+
+.sheet { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-backdrop { position: absolute; inset: 0; background: var(--backdrop); animation: fade .2s ease; }
+.sheet-panel {
+  position: relative; width: 100%; max-height: 92dvh; overflow-y: auto;
+  background: var(--bg); border-radius: 20px 20px 0 0;
+  padding: 8px 16px calc(20px + var(--safe-b)); animation: up .25s var(--ease);
+}
+.grabber { width: 40px; height: 4px; border-radius: 4px; background: var(--surface-2); margin: 4px auto 10px; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.sheet-head h2 { font-size: 20px; font-weight: 700; }
+
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; text-align: left; background: var(--surface); border-radius: var(--radius); padding: 14px 16px; }
+.tile:last-child { grid-column: span 2; }
+.tile-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.tile b { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.tile-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.day { margin-top: 12px; }
+.day-head { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; color: var(--muted); padding: 6px 0; border-bottom: 1px solid var(--line); text-transform: capitalize; }
+
+/* Șir de praguri (detaliu) */
+.steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.step { border-radius: var(--radius-sm); padding: 10px 12px; background: var(--surface); }
+.step b { display: block; font-size: 15px; font-weight: 700; }
+.step small { font-size: 12px; color: var(--muted); }
+.step.done { background: var(--fg); color: var(--bg); }
+.step.done small { color: var(--muted-2); }
+.step.next { box-shadow: inset 0 0 0 2px var(--fg); background: var(--bg); }
+
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+.empty b { display: block; color: var(--fg); margin-bottom: 2px; }
+.empty .btn { margin-top: 14px; }
+.grid-2 { display: block; }
+
+.logo { display: grid; place-items: center; flex: 0 0 auto; width: 38px; height: 38px; border-radius: 11px; background: var(--fg); color: var(--bg); font-size: 17px; font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.logo.sm { width: 20px; height: 20px; border-radius: 6px; font-size: 10px; }
+.m-brand { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+
+/* ---------- Animații ---------- */
+@keyframes up { from { transform: translateY(100%); } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes grow { from { transform: scaleX(0); } }
+@keyframes down { to { transform: translateY(100%); } }
+@keyframes fadeOut { to { opacity: 0; } }
+@keyframes tabPop { 40% { transform: translateY(-3px) scale(1.12); } }
+@keyframes titleIn { from { opacity: 0; transform: translateX(-8px); } }
+.rise { animation: rise .5s var(--ease) backwards; }
+#view.enter .progress > i { transform-origin: left; animation: grow .9s var(--ease) .15s backwards; }
+#title.anim { animation: titleIn .35s var(--ease) backwards; }
+.btn, .tile, .chip, .seg button, .fab, .icon-btn, a.row, .step {
+  transition: transform .12s ease, background-color .15s ease, color .15s ease, box-shadow .2s ease;
+}
+.btn:active, .tile:active, .chip:active, .seg button:active, .icon-btn:active, .fab:active { transform: scale(.97); }
+.tab svg { transition: transform .2s; }
+.tab.active svg { animation: tabPop .35s var(--ease); }
+.fab { animation: rise .5s var(--ease) .2s backwards; }
+.fab:hover { transform: rotate(90deg); }
+.sheet.closing .sheet-backdrop { animation: fadeOut .2s ease forwards; }
+.sheet.closing .sheet-panel { animation: down .22s ease-in forwards; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+.toast {
+  position: fixed; left: 50%; z-index: 60; bottom: calc(var(--tabbar) + var(--safe-b) + 90px);
+  transform: translate(-50%, 20px); opacity: 0; pointer-events: none;
+  background: var(--fg); color: var(--bg); font-weight: 600; font-size: 14px;
+  padding: 10px 18px; border-radius: 999px; transition: .2s; white-space: nowrap;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Desktop ---------- */
+@media (hover: hover) {
+  a.row:hover { background: var(--surface); }
+  a.row { border-radius: 8px; padding-left: 8px; padding-right: 8px; margin: 0 -8px; width: calc(100% + 16px); }
+}
+@media (min-width: 900px) {
+  .app { display: grid; grid-template-columns: var(--sidebar) 1fr; }
+  .sidebar { display: flex; flex-direction: column; gap: 20px; position: sticky; top: 0; height: 100dvh; border-right: 1px solid var(--line); padding: 28px 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+  .brand-text { font-size: 15px; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
+  .brand-text small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .m-brand { display: none; }
+  .side-nav { display: flex; flex-direction: column; gap: 2px; }
+  .side-item { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: var(--radius-sm); font-weight: 500; color: var(--muted); }
+  .side-item:hover { background: var(--surface); color: var(--fg); }
+  .side-item.active { background: var(--surface); color: var(--fg); font-weight: 700; }
+  .side-foot { margin-top: auto; font-size: 12px; color: var(--muted); padding: 0 8px; }
+  .tabbar, .fab { display: none; }
+  .content { min-width: 0; }
+  .topbar { top: 0; padding: 32px 40px 16px; max-width: 1120px; margin: 0 auto; }
+  .topbar h1 { font-size: 34px; }
+  main { padding: 8px 40px 56px; }
+  .grid-2 { display: grid; grid-template-columns: 1.35fr 1fr; gap: 32px; align-items: start; }
+  .grid-2 > div > .section:first-child { margin-top: 0; }
+  .hero-big { font-size: 44px; }
+  .tiles { grid-template-columns: repeat(3, 1fr); margin-top: 12px; }
+  .tile:last-child { grid-column: auto; }
+  .tile:hover { transform: translateY(-2px); box-shadow: 0 6px 18px var(--lift-shadow); background: var(--surface-2); }
+  .sheet { align-items: center; }
+  .sheet-panel { max-width: 480px; border-radius: 20px; padding: 20px 24px 24px; animation: pop .22s var(--ease); }
+  .sheet.closing .sheet-panel { animation: popOut .18s ease forwards; }
+  .grabber { display: none; }
+  .toast { bottom: 32px; }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } }
+  @keyframes popOut { to { transform: scale(.96); opacity: 0; } }
+}
+</style>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="logo">hq</span><span class="brand-text">hq tracker<small>obiceiuri bune și rele</small></span></div>
+    <button class="btn primary block" data-action="add">+ Adaugă obicei</button>
+    <nav class="side-nav" id="sideNav"></nav>
+    <p class="side-foot">Datele stau doar în acest browser, pe acest dispozitiv.</p>
+  </aside>
+  <div class="content">
+    <header class="topbar">
+      <button class="icon-btn" id="backBtn" data-action="back" aria-label="Înapoi" hidden></button>
+      <div class="titles">
+        <span class="m-brand"><span class="logo sm">hq</span>hq tracker</span>
+        <h1 id="title">Acasă</h1>
+      </div>
+      <span class="top-date" id="topDate"></span>
+    </header>
+    <main id="view"></main>
+  </div>
+  <nav class="tabbar" id="tabbar"></nav>
+  <button class="fab" data-action="add" aria-label="Adaugă obicei"></button>
+</div>
+<div id="sheet" class="sheet" hidden></div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+/* ---------- Helper-e UI ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ICONS = {
+  home: '<path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  ban: '<circle cx="12" cy="12" r="9"/><path d="m5.7 5.7 12.6 12.6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  close: '<path d="M18 6 6 18M6 6l12 12"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  chev: '<path d="m9 18 6-6-6-6"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+  reset: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+};
+const icon = (n, s = 22) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+let sheetTimer;
+function openSheet(title, html, mount) {
+  const el = $('#sheet'); clearTimeout(sheetTimer); el.classList.remove('closing');
+  el.innerHTML = `<div class="sheet-backdrop" data-action="close-sheet"></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="grabber"></div>
+      <div class="sheet-head"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-sheet" aria-label="Închide">${icon('close', 20)}</button></div>
+      ${html}
+    </div>`;
+  el.hidden = false; document.body.classList.add('locked');
+  if (mount) mount(el);
+}
+function closeSheet() {
+  const el = $('#sheet');
+  if (el.hidden || el.classList.contains('closing')) return;
+  document.body.classList.remove('locked');
+  const finish = () => { el.hidden = true; el.innerHTML = ''; el.classList.remove('closing'); };
+  if (reducedMotion()) return finish();
+  el.classList.add('closing'); sheetTimer = setTimeout(finish, 220);
+}
+function armed(el, label) {
+  if (el.dataset.armed) return true;
+  el.dataset.armed = '1'; el.dataset.orig = el.textContent; el.textContent = label; el.classList.add('armed');
+  setTimeout(() => {
+    if (!el.isConnected || !el.dataset.armed) return;
+    delete el.dataset.armed; el.textContent = el.dataset.orig; el.classList.remove('armed');
+  }, 4000);
+  return false;
+}
+function stagger(root, selector = '.notice, .hero, .tile, .section, .action-row, .day') {
+  let i = 0;
+  root.querySelectorAll(selector).forEach(el => { el.classList.add('rise'); el.style.animationDelay = `${Math.min(i++ * 45, 500)}ms`; });
+}
+const NUMFMT = {};
+function countUp(root, selector = '.tile b, .hero-split b[data-count]') {
+  if (reducedMotion()) return;
+  root.querySelectorAll(selector).forEach(el => {
+    const text = el.textContent;
+    const m = text.match(/\d[\d.]*(?:,\d+)?/); if (!m) return;
+    const dec = (m[0].split(',')[1] || '').length;
+    const target = parseFloat(m[0].replace(/\./g, '').replace(',', '.')); if (!target) return;
+    const fmt = NUMFMT[dec] ||= new Intl.NumberFormat('ro-RO', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const pre = text.slice(0, m.index), post = text.slice(m.index + m[0].length);
+    const t0 = performance.now(), dur = 900;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur);
+      el.textContent = p < 1 ? pre + fmt.format(target * (1 - Math.pow(1 - p, 3))) + post : text;
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+}
+const replay = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+
+/* ---------- Date ---------- */
+const KEY = 'hq-tracker-v1';
+const H = 3600000, D = 24 * H;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+function seed() {
+  const n = Date.now();
+  return [
+    { id: uid() + 'a', name: 'Fumat', kind: 'bad', start: n - 23 * D - 5 * H, cost: 45, example: true,
+      resets: [{ at: n - 23 * D - 5 * H, streak: 9 * D + 4 * H, note: 'La o petrecere' }], best: 9 * D + 4 * H },
+    { id: uid() + 'b', name: 'Alcool', kind: 'bad', start: n - 61 * D - 2 * H, cost: 60, example: true, resets: [], best: 0 },
+    { id: uid() + 'c', name: 'Sport dimineața', kind: 'good', start: n - 12 * D - 9 * H, example: true,
+      resets: [{ at: n - 12 * D - 9 * H, streak: 4 * D + 2 * H, note: '' }], best: 4 * D + 2 * H },
+    { id: uid() + 'd', name: 'Citit 20 de minute', kind: 'good', start: n - 4 * D - 3 * H, example: true, resets: [], best: 0 },
+  ];
+}
+function load() {
+  try { const raw = localStorage.getItem(KEY); if (raw) return JSON.parse(raw); } catch (e) {}
+  return seed();
+}
+let habits = load();
+function save() { try { localStorage.setItem(KEY, JSON.stringify(habits)); } catch (e) {} }
+const byId = id => habits.find(h => h.id === id);
+
+/* ---------- Format ---------- */
+const pad = n => String(n).padStart(2, '0');
+const nf = new Intl.NumberFormat('ro-RO', { maximumFractionDigits: 0 });
+// română: 1 zi, 2–19 zile, 20+ „de zile” (după ultimele două cifre)
+function pl(n, one, many) {
+  if (n === 1) return `1 ${one}`;
+  const r = n % 100;
+  return `${nf.format(n)} ${(r === 0 && n > 0) || r >= 20 ? 'de ' : ''}${many}`;
+}
+const zile = n => pl(n, 'zi', 'zile');
+function parts(ms) {
+  ms = Math.max(0, ms);
+  return { d: Math.floor(ms / D), h: Math.floor(ms % D / H), m: Math.floor(ms % H / 60000), s: Math.floor(ms % 60000 / 1000) };
+}
+const clock = ms => { const p = parts(ms); return `${pad(p.h)}:${pad(p.m)}:${pad(p.s)}`; };
+function short(ms) {
+  const p = parts(ms);
+  if (p.d >= 1) return zile(p.d);
+  if (p.h >= 1) return `${p.h} h ${p.m} min`;
+  return `${p.m} min`;
+}
+const money = n => `${nf.format(Math.round(n))} MDL`;
+const fmtDate = ms => new Date(ms).toLocaleDateString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDateTime = ms => new Date(ms).toLocaleString('ro-RO', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const toLocalInput = ms => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const initials = s => s.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+/* ---------- Logica obiceiurilor ---------- */
+const cur = h => Date.now() - h.start;
+const best = h => Math.max(h.best || 0, cur(h));
+const saved = h => h.kind === 'bad' && h.cost ? h.cost * cur(h) / D : 0;
+const MS = [[1, '1 zi'], [3, '3 zile'], [7, '1 săpt.'], [14, '2 săpt.'], [30, '1 lună'], [60, '2 luni'], [90, '3 luni'], [180, '6 luni'], [365, '1 an'], [730, '2 ani'], [1095, '3 ani']];
+function milestones(days) {
+  const list = MS.slice();
+  for (let y = 4; list[list.length - 1][0] <= days; y++) list.push([365 * y, `${y} ani`]);
+  return list;
+}
+function nextMs(ms) {
+  const days = ms / D, list = milestones(days);
+  const i = list.findIndex(([d]) => d > days);
+  const prev = i > 0 ? list[i - 1][0] : 0, next = list[i];
+  return { next, prev, pct: Math.min(100, (days - prev) / (next[0] - prev) * 100), leftMs: next[0] * D - ms, list, reached: i };
+}
+const verbKeep = h => h.kind === 'bad' ? 'Liber de' : 'Respecți de';
+const verbFail = h => h.kind === 'bad' ? 'Am cedat' : 'Am ratat';
+
+/* ---------- Rutare ---------- */
+const TABS = [
+  { id: 'acasa', label: 'Acasă', ico: 'home' },
+  { id: 'bune', label: 'Bune', ico: 'check' },
+  { id: 'rele', label: 'Rele', ico: 'ban' },
+  { id: 'istoric', label: 'Istoric', ico: 'clock' },
+];
+function route() {
+  const r = location.hash.slice(1);
+  if (r.startsWith('obicei-')) return { name: 'detail', id: r.slice(7) };
+  return { name: TABS.some(t => t.id === r) ? r : 'acasa' };
+}
+
+/* ---------- Bucăți de UI ---------- */
+function avatar(h) {
+  return `<span class="avatar ${h.kind === 'bad' ? 'dark' : ''}" aria-hidden="true">${h.kind === 'bad' ? icon('ban', 18) : icon('check', 18)}</span>`;
+}
+function habitRow(h) {
+  const n = nextMs(cur(h));
+  const sub = `${h.kind === 'bad' ? 'Rău' : 'Bun'} · următorul prag: ${n.next[1]}${h.example ? ' · exemplu' : ''}`;
+  return `<a class="row" href="#obicei-${h.id}">
+    ${avatar(h)}
+    <span class="row-main"><span class="row-title">${esc(h.name)}</span><span class="row-sub">${esc(sub)}</span></span>
+    <span class="row-end"><b data-since="${h.start}" data-fmt="short">${short(cur(h))}</b><small data-since="${h.start}" data-fmt="clock">${clock(cur(h))}</small></span>
+  </a>`;
+}
+function msRow(h) {
+  const c = cur(h), n = nextMs(c);
+  return `<a class="ms row" href="#obicei-${h.id}" style="display:block">
+    <div class="ms-top"><span>${esc(h.name)}</span><span class="ms-val"><b>${short(c)}</b> / ${n.next[1]}</span></div>
+    <div class="progress"><i style="width:${n.pct.toFixed(1)}%"></i></div>
+    <div class="ms-sub"><span>${Math.floor(n.pct)}%</span><span>mai ai ${short(n.leftMs)}</span></div>
+  </a>`;
+}
+const emptyHabits = (kind) => `<div class="empty"><b>${kind === 'bad' ? 'Niciun obicei rău urmărit' : kind === 'good' ? 'Niciun obicei bun încă' : 'Nu ai obiceiuri încă'}</b>
+  ${kind === 'bad' ? 'Adaugă ce vrei să lași, de exemplu fumatul sau alcoolul.' : 'Adaugă un obicei și vezi de cât timp îl respecți.'}
+  <br><button class="btn primary" data-action="add" data-kind="${kind || 'good'}">Adaugă obicei</button></div>`;
+
+/* ---------- Ecrane ---------- */
+const VIEWS = {
+  acasa() {
+    if (!habits.length) return { title: 'Acasă', html: emptyHabits() };
+    const sorted = habits.slice().sort((a, b) => cur(b) - cur(a));
+    const top = sorted[0];
+    const good = habits.filter(h => h.kind === 'good').length, bad = habits.length - good;
+    const record = habits.reduce((m, h) => best(h) > best(m) ? h : m, habits[0]);
+    const totalSaved = habits.reduce((s, h) => s + saved(h), 0);
+    const failsMonth = habits.reduce((s, h) => s + h.resets.filter(r => r.at > Date.now() - 30 * D).length, 0);
+    const hasEx = habits.some(h => h.example);
+    return { title: 'Acasă', html: `
+      ${hasEx ? `<div class="notice"><span>Vezi exemple. Adaugă obiceiurile tale.</span><button class="link" data-action="clear-examples">Șterge exemplele</button></div>` : ''}
+      <a class="hero" href="#obicei-${top.id}" style="display:block">
+        <div class="hero-label">Cea mai lungă serie acum · ${esc(top.name)}</div>
+        <div class="hero-big" data-since="${top.start}" data-fmt="short">${short(cur(top))}</div>
+        <div class="hero-sub">și <span data-since="${top.start}" data-fmt="clock">${clock(cur(top))}</span></div>
+        <div class="progress inv"><i style="width:${nextMs(cur(top)).pct.toFixed(1)}%"></i></div>
+        <div class="hero-meta"><span>Următorul prag: ${nextMs(cur(top)).next[1]}</span><span>${Math.floor(nextMs(cur(top)).pct)}%</span></div>
+        <div class="hero-split">
+          <div><span>Obiceiuri bune</span><b data-count>${good}</b></div>
+          <div><span>Obiceiuri rele</span><b data-count>${bad}</b></div>
+        </div>
+      </a>
+      <div class="tiles">
+        <a class="tile" href="#obicei-${record.id}"><span class="tile-label">Record</span><b>${short(best(record))}</b><span class="tile-sub">${esc(record.name)}</span></a>
+        <a class="tile" href="#istoric"><span class="tile-label">Ratări, 30 zile</span><b>${failsMonth}</b><span class="tile-sub">${failsMonth ? 'contoare resetate' : 'nicio resetare'}</span></a>
+        <a class="tile" href="#rele"><span class="tile-label">Bani economisiți</span><b data-fmt="saved-total">${money(totalSaved)}</b><span class="tile-sub">din ce ai lăsat</span></a>
+      </div>
+      <div class="grid-2">
+        <div><section class="section">
+          <div class="section-head"><h2>Obiceiurile tale</h2><button class="link" data-action="add">Adaugă</button></div>
+          <div class="list">${sorted.map(habitRow).join('')}</div>
+        </section></div>
+        <div><section class="section">
+          <div class="section-head"><h2>Următoarele praguri</h2></div>
+          <div class="list">${sorted.slice().sort((a, b) => nextMs(cur(b)).pct - nextMs(cur(a)).pct).map(msRow).join('')}</div>
+        </section></div>
+      </div>` };
+  },
+  bune() { return listView('good'); },
+  rele() { return listView('bad'); },
+  istoric() {
+    const all = habits.flatMap(h => h.resets.map(r => ({ ...r, h }))).sort((a, b) => b.at - a.at);
+    const recs = habits.slice().sort((a, b) => best(b) - best(a));
+    const days = {};
+    all.forEach(r => { const k = new Date(r.at).toLocaleDateString('ro-RO', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); (days[k] ||= []).push(r); });
+    return { title: 'Istoric', html: `
+      <div class="grid-2">
+        <div><section class="section">
+          <div class="section-head"><h2>Resetări</h2><span class="hint" style="margin:0">${all.length} în total</span></div>
+          ${all.length ? Object.entries(days).map(([k, rs]) => `<div class="day"><div class="day-head"><span>${k}</span><span>${rs.length}</span></div>
+            <div class="list">${rs.map(r => `<a class="row" href="#obicei-${r.h.id}">${avatar(r.h)}
+              <span class="row-main"><span class="row-title">${esc(r.h.name)}</span><span class="row-sub">${esc(r.note || (r.h.kind === 'bad' ? 'Ai cedat' : 'Ai ratat'))}</span></span>
+              <span class="row-end"><b>${short(r.streak)}</b><small>serie încheiată</small></span></a>`).join('')}</div></div>`).join('')
+          : `<div class="empty"><b>Nicio resetare</b>Când apeși „Am cedat” sau „Am ratat”, seria încheiată apare aici.</div>`}
+        </section></div>
+        <div><section class="section">
+          <div class="section-head"><h2>Recorduri</h2></div>
+          ${recs.length ? `<div class="list">${recs.map(h => `<a class="row" href="#obicei-${h.id}">${avatar(h)}
+            <span class="row-main"><span class="row-title">${esc(h.name)}</span><span class="row-sub">${best(h) <= cur(h) + 1000 ? 'Recordul e seria de acum' : 'Acum: ' + short(cur(h))}</span></span>
+            <span class="row-end"><b>${short(best(h))}</b>${best(h) <= cur(h) + 1000 ? '<span class="badge">ACUM</span>' : ''}</span></a>`).join('')}</div>`
+          : `<div class="empty"><b>Niciun record încă</b>Adaugă un obicei ca să începi.</div>`}
+        </section></div>
+      </div>` };
+  },
+  detail(id) {
+    const h = byId(id);
+    if (!h) return { title: 'Negăsit', html: `<div class="empty"><b>Obiceiul nu mai există</b>Poate l-ai șters. <br><a class="btn primary" href="#acasa" style="margin-top:14px">Înapoi acasă</a></div>` };
+    const c = cur(h), n = nextMs(c), b = best(h), isRecord = b <= c + 1000;
+    const prevResets = h.resets.slice().sort((a, b2) => b2.at - a.at);
+    const steps = n.list.slice(0, Math.max(n.reached + 3, 8));
+    return { title: h.name, back: h.kind === 'bad' ? '#rele' : '#bune', html: `
+      <div class="grid-2">
+        <div>
+          <div class="hero">
+            <div class="hero-label">${verbKeep(h)}${h.example ? ' · exemplu' : ''}</div>
+            <div class="hero-big" data-since="${h.start}" data-fmt="days">${zile(parts(c).d)}</div>
+            <div class="hero-sub">și <span data-since="${h.start}" data-fmt="clock">${clock(c)}</span> · din ${fmtDateTime(h.start)}</div>
+            <div class="progress inv"><i style="width:${n.pct.toFixed(1)}%"></i></div>
+            <div class="hero-meta"><span>Următorul prag: ${n.next[1]}</span><span>mai ai ${short(n.leftMs)}</span></div>
+            <div class="hero-split">
+              <div><span>Record</span><b>${short(b)}</b>${isRecord ? '<span class="badge" style="margin-left:6px">ACUM</span>' : ''}</div>
+              ${h.kind === 'bad' && h.cost
+                ? `<div><span>Economisit</span><b data-since="${h.start}" data-fmt="money" data-cost="${h.cost}">${money(saved(h))}</b></div>`
+                : `<div><span>Resetări</span><b>${h.resets.length}</b></div>`}
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="btn primary" data-action="reset" data-id="${h.id}">${icon('reset', 18)} ${verbFail(h)}</button>
+            <button class="btn" data-action="edit" data-id="${h.id}">Editează</button>
+          </div>
+          <section class="section">
+            <div class="section-head"><h2>Praguri</h2><span class="hint" style="margin:0">${n.reached} atinse</span></div>
+            <div class="steps">${steps.map(([d, l], i) => `<div class="step ${i < n.reached ? 'done' : i === n.reached ? 'next' : ''}"><b>${l}</b><small>${i < n.reached ? 'atins' : i === n.reached ? Math.floor(n.pct) + '%' : zile(d)}</small></div>`).join('')}</div>
+          </section>
+        </div>
+        <div>
+          <section class="section">
+            <div class="section-head"><h2>Detalii</h2></div>
+            <div class="list">
+              <div class="row"><span class="row-main"><span class="row-title">Tip</span></span><span class="row-end"><b>${h.kind === 'bad' ? 'Obicei rău' : 'Obicei bun'}</b></span></div>
+              <div class="row"><span class="row-main"><span class="row-title">Seria actuală a început</span></span><span class="row-end"><b>${fmtDate(h.start)}</b></span></div>
+              <div class="row"><span class="row-main"><span class="row-title">Resetări</span></span><span class="row-end"><b>${h.resets.length}</b></span></div>
+              ${h.kind === 'bad' ? `<div class="row"><span class="row-main"><span class="row-title">Cost pe zi</span></span><span class="row-end"><b>${h.cost ? money(h.cost) : '—'}</b></span></div>` : ''}
+            </div>
+          </section>
+          <section class="section">
+            <div class="section-head"><h2>Serii anterioare</h2></div>
+            ${prevResets.length ? `<div class="list">${prevResets.map(r => `<div class="row"><span class="avatar" aria-hidden="true">${icon('reset', 18)}</span>
+              <span class="row-main"><span class="row-title">${short(r.streak)}</span><span class="row-sub">${esc(r.note || 'Fără notă')}</span></span>
+              <span class="row-end"><b>${fmtDate(r.at)}</b>${r.streak >= b - 1000 && !isRecord ? '<small>record</small>' : ''}</span></div>`).join('')}</div>`
+            : `<div class="empty"><b>Nicio serie întreruptă</b>Prima încercare ține de ${short(c)}.</div>`}
+          </section>
+          <section class="section"><button class="btn danger" data-action="delete" data-id="${h.id}">Șterge obiceiul</button></section>
+        </div>
+      </div>` };
+  },
+};
+function listView(kind) {
+  const list = habits.filter(h => h.kind === kind).sort((a, b) => cur(b) - cur(a));
+  const title = kind === 'bad' ? 'Rele' : 'Bune';
+  const tot = list.reduce((s, h) => s + saved(h), 0);
+  const longest = list[0];
+  return { title, html: list.length ? `
+    <div class="hero">
+      <div class="hero-label">${kind === 'bad' ? 'Cel mai mult fără' : 'Cel mai mult respectat'} · ${esc(longest.name)}</div>
+      <div class="hero-big" data-since="${longest.start}" data-fmt="short">${short(cur(longest))}</div>
+      <div class="hero-sub">și <span data-since="${longest.start}" data-fmt="clock">${clock(cur(longest))}</span></div>
+      <div class="hero-split">
+        <div><span>${kind === 'bad' ? 'Obiceiuri lăsate' : 'Obiceiuri urmărite'}</span><b data-count>${list.length}</b></div>
+        ${kind === 'bad' ? `<div><span>Bani economisiți</span><b>${money(tot)}</b></div>`
+          : `<div><span>Resetări în total</span><b>${list.reduce((s, h) => s + h.resets.length, 0)}</b></div>`}
+      </div>
+    </div>
+    <section class="section">
+      <div class="section-head"><h2>${kind === 'bad' ? 'Ce lași' : 'Ce construiești'}</h2></div>
+      <div class="list">${list.map(habitRow).join('')}</div>
+      <button class="btn block add-under" data-action="add" data-kind="${kind}">+ Adaugă obicei ${kind === 'bad' ? 'rău' : 'bun'}</button>
+      <p class="hint">${kind === 'bad' ? 'Contorul arată de cât timp nu ai mai cedat. Dacă ai cedat, apasă pe obicei și „Am cedat”: seria se salvează în istoric și contorul pornește din nou.' : 'Contorul arată de cât timp ții obiceiul fără pauză. Dacă ai ratat, apasă pe obicei și „Am ratat”.'}</p>
+    </section>` : emptyHabits(kind) };
+}
+
+/* ---------- Randare ---------- */
+function render(animate = false) {
+  const r = route();
+  const out = r.name === 'detail' ? VIEWS.detail(r.id) : VIEWS[r.name]();
+  const v = $('#view'); v.innerHTML = out.html;
+  $('#title').textContent = out.title;
+  document.title = r.name === 'acasa' ? 'hq tracker' : `${out.title} · hq tracker`;
+  const back = $('#backBtn'); back.hidden = !out.back; back.dataset.href = out.back || '';
+  $('#topDate').hidden = r.name === 'detail';
+  const activeTab = r.name === 'detail' ? (out.back || '#acasa').slice(1) : r.name;
+  document.querySelectorAll('[data-tab]').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
+  v.classList.remove('enter');
+  if (animate) { replay(v, 'enter'); replay($('#title'), 'anim'); stagger(v); countUp(v); }
+}
+function tick() {
+  const now = Date.now();
+  document.querySelectorAll('[data-since]').forEach(el => {
+    const ms = now - Number(el.dataset.since);
+    const f = el.dataset.fmt;
+    el.textContent = f === 'clock' ? clock(ms) : f === 'days' ? zile(parts(ms).d) : f === 'money' ? money(Number(el.dataset.cost) * ms / D) : short(ms);
+  });
+}
+
+/* ---------- Formulare ---------- */
+const SUGGEST = {
+  bad: ['Fumat', 'Alcool', 'Zahăr', 'Social media', 'Jocuri de noroc', 'Fast-food', 'Energizante'],
+  good: ['Sport', 'Citit', 'Meditație', '2 litri de apă', 'Somn până la 23:00', 'Fără telefon dimineața', 'Mers 10.000 de pași'],
+};
+function habitForm(h, kindHint) {
+  const kind = h ? h.kind : (kindHint || (route().name === 'rele' ? 'bad' : 'good'));
+  openSheet(h ? 'Editează obiceiul' : 'Obicei nou', `
+    <form class="form" id="habitForm" data-id="${h ? h.id : ''}">
+      <input type="hidden" id="fKind" value="${kind}">
+      <div class="seg" role="group" aria-label="Tip">
+        <button type="button" data-kind="good" class="${kind === 'good' ? 'on' : ''}">Bun · îl construiesc</button>
+        <button type="button" data-kind="bad" class="${kind === 'bad' ? 'on' : ''}">Rău · îl las</button>
+      </div>
+      <div class="field"><label class="label" for="fName">Nume</label>
+        <input id="fName" required maxlength="60" autocomplete="off" value="${h ? esc(h.name) : ''}" placeholder="${kind === 'bad' ? 'ex. Fumat' : 'ex. Sport'}"></div>
+      <div class="chips" id="fChips"></div>
+      <div class="field"><label class="label" for="fStart">${h ? 'Seria actuală a început' : 'De când îl respecți?'}</label>
+        <input id="fStart" type="datetime-local" value="${toLocalInput(h ? h.start : Date.now())}"></div>
+      <div class="field" id="fCostWrap"><label class="label" for="fCost">Cât cheltuiai pe zi (MDL, opțional)</label>
+        <input id="fCost" type="number" inputmode="decimal" min="0" step="1" value="${h && h.cost ? h.cost : ''}" placeholder="ex. 45"></div>
+      <div class="actions"><button class="btn primary" type="submit">${h ? 'Salvează' : 'Adaugă'}</button></div>
+    </form>`, el => {
+    const sync = () => {
+      const k = $('#fKind', el).value;
+      el.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.kind === k));
+      $('#fCostWrap', el).hidden = k !== 'bad';
+      $('#fName', el).placeholder = k === 'bad' ? 'ex. Fumat' : 'ex. Sport';
+      $('#fChips', el).innerHTML = h ? '' : SUGGEST[k].map(s => `<button type="button" class="chip" data-suggest="${esc(s)}">${esc(s)}</button>`).join('');
+    };
+    el.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { $('#fKind', el).value = b.dataset.kind; sync(); }));
+    el.addEventListener('click', e => {
+      const c = e.target.closest('[data-suggest]'); if (!c) return;
+      $('#fName', el).value = c.dataset.suggest;
+      el.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === c));
+    });
+    sync();
+    if (!h && matchMedia('(hover: hover)').matches) $('#fName', el).focus();
+  });
+}
+function resetForm(h) {
+  openSheet(verbFail(h), `
+    <form class="form" id="resetForm" data-id="${h.id}">
+      <p class="info">Seria de ${short(cur(h))} se salvează în istoric și contorul pornește din nou. Recordul tău rămâne: ${short(best(h))}.</p>
+      <div class="field"><label class="label" for="rAt">Când?</label><input id="rAt" type="datetime-local" value="${toLocalInput(Date.now())}"></div>
+      <div class="field"><label class="label" for="rNote">Ce s-a întâmplat? (opțional)</label><input id="rNote" maxlength="120" autocomplete="off" placeholder="ex. stres la muncă"></div>
+      <div class="actions"><button class="btn primary" type="submit">Resetează contorul</button></div>
+    </form>`);
+}
+function parseLocal(v) { const t = new Date(v).getTime(); return isNaN(t) ? Date.now() : Math.min(t, Date.now()); }
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target;
+  if (f.id === 'habitForm') {
+    const name = $('#fName', f).value.trim();
+    if (!name) { $('#fName', f).focus(); return toast('Scrie un nume'); }
+    const kind = $('#fKind', f).value, start = parseLocal($('#fStart', f).value);
+    const cost = kind === 'bad' ? Math.max(0, parseFloat($('#fCost', f).value) || 0) || null : null;
+    if (f.dataset.id) {
+      Object.assign(byId(f.dataset.id), { name, kind, start, cost });
+      save(); closeSheet(); render(); toast('Salvat');
+    } else {
+      const h = { id: uid(), name, kind, start, cost, resets: [], best: 0 };
+      habits.push(h); save(); closeSheet(); toast('Adăugat');
+      location.hash = 'obicei-' + h.id;
+    }
+  }
+  if (f.id === 'resetForm') {
+    const h = byId(f.dataset.id); if (!h) return;
+    const at = Math.max(h.start, parseLocal($('#rAt', f).value));
+    const streak = at - h.start;
+    h.resets.push({ at, streak, note: $('#rNote', f).value.trim() });
+    h.best = Math.max(h.best || 0, streak);
+    h.start = at;
+    save(); closeSheet(); render(true); toast('Contorul a pornit din nou');
+  }
+});
+
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-action]'); if (!a) return;
+  const act = a.dataset.action, h = a.dataset.id && byId(a.dataset.id);
+  if (act === 'close-sheet') closeSheet();
+  if (act === 'add') habitForm(null, a.dataset.kind);
+  if (act === 'edit' && h) habitForm(h);
+  if (act === 'reset' && h) resetForm(h);
+  if (act === 'back') location.hash = a.dataset.href || 'acasa';
+  if (act === 'delete' && h) {
+    if (!armed(a, 'Apasă din nou ca să ștergi')) return;
+    habits = habits.filter(x => x !== h); save(); toast('Șters');
+    location.hash = h.kind === 'bad' ? 'rele' : 'bune';
+  }
+  if (act === 'clear-examples') {
+    if (!armed(a, 'Apasă din nou')) return;
+    habits = habits.filter(x => !x.example); save(); render(true); toast('Exemplele au fost șterse');
+  }
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+/* ---------- Pornire ---------- */
+$('#tabbar').innerHTML = TABS.map(t => `<a class="tab" data-tab="${t.id}" href="#${t.id}">${icon(t.ico)}<span>${t.label}</span></a>`).join('');
+$('#sideNav').innerHTML = TABS.map(t => `<a class="side-item" data-tab="${t.id}" href="#${t.id}">${icon(t.ico, 20)}<span>${t.label}</span></a>`).join('');
+$('.fab').innerHTML = icon('plus', 26);
+$('#backBtn').innerHTML = icon('back', 20);
+$('#topDate').textContent = new Date().toLocaleDateString('ro-RO', { weekday: 'short', day: 'numeric', month: 'short' });
+window.addEventListener('hashchange', () => { closeSheet(); render(true); scrollTo(0, 0); });
+render(true);
+setInterval(tick, 1000);
+</script>
